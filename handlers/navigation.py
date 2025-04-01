@@ -43,7 +43,8 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     elif data == "channels_menu":
         text = get_text("channels_menu_title", context)
         keyboard = build_channels_menu_keyboard(
-            add_text=get_text("channels_menu_add", context),
+            add_select_text=get_text("channels_menu_add_select", context), # Исправляем аргументы
+            add_link_text=get_text("channels_menu_add_link", context),     # Исправляем аргументы
             list_text=get_text("channels_menu_list", context),
             back_text=get_text("channels_menu_back", context)
         )
@@ -114,7 +115,8 @@ async def channels_menu_handler(update: Update, context: ContextTypes.DEFAULT_TY
     logger.warning(f"Необработанный callback в channels_menu_handler: {data}")
     text = get_text("channels_menu_title", context)
     keyboard = build_channels_menu_keyboard(
-        add_text=get_text("channels_menu_add", context),
+        add_select_text=get_text("channels_menu_add_select", context), # Исправляем аргументы
+        add_link_text=get_text("channels_menu_add_link", context),     # Исправляем аргументы
         list_text=get_text("channels_menu_list", context),
         back_text=get_text("channels_menu_back", context)
     )
@@ -213,21 +215,29 @@ async def select_language_handler(update: Update, context: ContextTypes.DEFAULT_
         await query.edit_message_text(text=text, reply_markup=keyboard)
         return SELECT_LANGUAGE
 
-    if new_lang and new_lang in context.application.bot_data.get("supported_languages", ["en", "ru"]): # Получаем из bot_data
-        context.user_data[context.application.bot_data.get("user_language_key", "user_language")] = new_lang
+    # Используем импортированные константы
+    from constants import SUPPORTED_LANGUAGES, USER_LANGUAGE
+    if new_lang and new_lang in SUPPORTED_LANGUAGES:
+        context.user_data[USER_LANGUAGE] = new_lang # Используем константу USER_LANGUAGE
         try:
             from database import update_user_language, get_db # Прямой импорт из корня
             with next(get_db()) as db:
                 update_user_language(db, user_id, new_lang)
             logger.info(f"User {user_id} set language to {new_lang}")
-            success_text = get_text("language_updated", context)
+            # Используем правильный ключ и передаем новый язык явно,
+            # чтобы сообщение было на только что выбранном языке
+            success_text = get_text("language_set_success", lang_code=new_lang)
             await query.edit_message_text(text=success_text)
             await asyncio.sleep(1.5)
+            # Перезапускаем главное меню, чтобы оно отобразилось на новом языке
             return await start(update, context)
 
         except ImportError:
              logger.error("Функция update_user_language не найдена в database.py")
-             await query.edit_message_text(get_text("error_saving_language", context))
+             # Добавим ключ для ошибки сохранения языка, если его нет
+             error_text = get_text("error_saving_language", context) or "Error saving language setting."
+             await query.edit_message_text(error_text)
+             # Возвращаемся в меню настроек
              text = get_text("settings_menu_title", context)
              keyboard = build_settings_menu_keyboard(
                  select_lang_text=get_text("settings_menu_select_language", context),
@@ -237,7 +247,10 @@ async def select_language_handler(update: Update, context: ContextTypes.DEFAULT_
              return SETTINGS_MENU
         except Exception as e:
             logger.error(f"Ошибка при обновлении языка для пользователя {user_id}: {e}")
-            await query.edit_message_text(get_text("error_saving_language_occurred", context))
+            # Добавим ключ для ошибки сохранения языка, если его нет
+            error_text = get_text("error_saving_language_occurred", context) or "An error occurred while saving language setting."
+            await query.edit_message_text(error_text)
+            # Возвращаемся в меню настроек
             text = get_text("settings_menu_title", context)
             keyboard = build_settings_menu_keyboard(
                 select_lang_text=get_text("settings_menu_select_language", context),
@@ -269,7 +282,8 @@ async def channels_menu_back(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Возвращает пользователя в меню управления каналами."""
     text = get_text("channels_menu_title", context)
     keyboard = build_channels_menu_keyboard(
-        add_text=get_text("channels_menu_add", context),
+        add_select_text=get_text("channels_menu_add_select", context), # Исправляем аргументы
+        add_link_text=get_text("channels_menu_add_link", context),     # Исправляем аргументы
         list_text=get_text("channels_menu_list", context),
         back_text=get_text("channels_menu_back", context)
     )

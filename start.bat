@@ -19,10 +19,10 @@ if not exist "%VENV_DIR%\Scripts\activate.bat" (
 echo Activating virtual environment...
 call "%VENV_DIR%\Scripts\activate.bat"
 
-echo Installing/Updating dependencies...
-pip install -r requirements.txt
+echo Installing/Updating dependencies (forcing python-telegram-bot update)...
+pip install --upgrade --no-cache-dir python-telegram-bot[ext]>=20.0 && pip install --upgrade --no-cache-dir -r requirements.txt
 if %errorlevel% neq 0 (
-    echo ERROR: Failed to install dependencies.
+    echo ERROR: Failed to install dependencies. Please check pip and network connection.
     pause
     exit /b %errorlevel%
 )

@@ -1,10 +1,15 @@
 # handlers/channels.py
+# handlers/channels.py
 import logging
 import asyncio
+import uuid # Для генерации request_id
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram.constants import ParseMode # Правильный импорт ParseMode
+
+import telegram # Добавим импорт telegram для telegram.error
+from telegram.ext import MessageHandler, filters # Добавить импорты
 
 # Локальные импорты
 from config import BOT_MODE
@@ -12,13 +17,19 @@ from database import (
     get_db, get_all_channels, add_channel, get_channel, delete_channel
 )
 from constants import (
-    CHANNELS_MENU, ADD_CHANNEL_FORWARD, DELETE_CHANNEL_CONFIRM, # Обновленные состояния
+    CHANNELS_MENU, DELETE_CHANNEL_CONFIRM, # ADD_CHANNEL_FORWARD удален
     CHANNEL_ID_DB, PAGE_SIZE
 )
+# Добавляем новое состояние
+ADDING_CHANNEL_LINK = uuid.uuid4()
+
 from keyboards import (
-    build_channels_menu_keyboard, build_paginated_list_keyboard, build_back_button
+    build_channels_menu_keyboard, build_paginated_list_keyboard, build_back_button,
+    build_request_chat_keyboard
 )
-from handlers.common import is_authorized
+# Импортируем is_authorized и cancel_conversation (если он там есть, иначе уберем)
+# На самом деле cancel_conversation здесь не используется, но исправим импорт
+from handlers.common import is_authorized # Убираем импорт cancel/cancel_conversation, он не нужен здесь
 from handlers.navigation import channels_menu_back # Импортируем channels_menu_back из navigation
 from localization import get_text
 
@@ -51,7 +62,8 @@ async def list_channels_button(update: Update, context: ContextTypes.DEFAULT_TYP
         if not channels:
             text = get_text("list_channels_empty", context)
             reply_markup = build_channels_menu_keyboard(
-                add_text=get_text("channels_menu_add", context),
+                add_select_text=get_text("channels_menu_add_select", context), # Обновляем тексты кнопок
+                add_link_text=get_text("channels_menu_add_link", context),
                 list_text=get_text("channels_menu_list", context),
                 back_text=get_text("channels_menu_back", context)
             )
@@ -104,7 +116,8 @@ async def list_channels_button(update: Update, context: ContextTypes.DEFAULT_TYP
                     chat_id=update.effective_chat.id,
                     text=get_text("list_channels_error", context),
                     reply_markup=build_channels_menu_keyboard(
-                        add_text=get_text("channels_menu_add", context),
+                        add_select_text=get_text("channels_menu_add_select", context), # Обновляем тексты кнопок
+                        add_link_text=get_text("channels_menu_add_link", context),
                         list_text=get_text("channels_menu_list", context),
                         back_text=get_text("channels_menu_back", context)
                     )
@@ -112,70 +125,258 @@ async def list_channels_button(update: Update, context: ContextTypes.DEFAULT_TYP
 
     return CHANNELS_MENU
 
-# --- Добавление канала через пересылку сообщения ---
+# --- Добавление канала через выбор чата ---
 
-async def add_channel_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Начинает диалог добавления нового канала: просит переслать сообщение."""
+async def add_channel_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Отправляет кнопку для запроса выбора чата."""
     query = update.callback_query
     if not is_authorized(update):
-        await query.answer(get_text("no_access_inline", context), show_alert=True)
-        return CHANNELS_MENU
+        if query: await query.answer(get_text("no_access_inline", context), show_alert=True)
+        return
 
-    await query.answer()
-    prompt_text = get_text("add_channel_forward_prompt", context, default="Чтобы добавить канал или группу, перешлите сюда любое сообщение из этого чата.")
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(get_text("cancel", context, default="Отмена"), callback_data="cancel")]])
-    await query.edit_message_text(text=prompt_text, reply_markup=keyboard)
-    return ADD_CHANNEL_FORWARD
+    if query: await query.answer()
 
-async def add_channel_handle_forward(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Обрабатывает пересланное сообщение для добавления канала."""
-    if not is_authorized(update):
-        await update.message.reply_text(get_text("no_access", context))
-        return ConversationHandler.END
+    # Генерируем уникальный ID для этого запроса
+    request_id = uuid.uuid4().int & (1<<31)-1 # Генерируем положительный 31-битный int
+    # Сохраняем request_id и цель во временном хранилище (например, user_data)
+    # Ключ может включать user_id для предотвращения коллизий в public режиме
+    context.user_data[f'chat_request_{request_id}'] = {'purpose': 'add_channel'}
+    logger.info(f"Generated chat request ID {request_id} for user {update.effective_user.id} to add channel.")
 
-    message = update.message
-    # Используем message.forward_origin для получения информации об источнике
-    forward_origin = message.forward_origin
+    prompt_text = get_text("add_channel_select_chat_prompt", context)
+    keyboard = build_request_chat_keyboard(
+        button_text=get_text("add_channel_select_chat_button", context),
+        request_id=request_id
+    )
 
-    if not forward_origin:
-        await message.reply_text(get_text("add_channel_forward_not_forwarded", context, default="Это не пересланное сообщение. Пожалуйста, перешлите сообщение из нужного канала или группы."))
-        return ADD_CHANNEL_FORWARD
+    # ReplyKeyboardMarkup нужно отправлять новым сообщением.
+    # Если был query, сначала отредактируем старое сообщение, убрав клавиатуру.
+    try:
+        if query:
+            await query.edit_message_text(text=prompt_text, reply_markup=None) # Убираем старую клавиатуру
 
-    # Проверяем тип источника
-    if forward_origin.type not in ['channel', 'group', 'supergroup']:
-         await message.reply_text(get_text("add_channel_forward_not_chat", context, default="Пожалуйста, перешлите сообщение из канала или группы, а не от пользователя."))
-         return ADD_CHANNEL_FORWARD
+        # Отправляем новое сообщение с ReplyKeyboardMarkup
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=prompt_text, # Можно оставить тот же текст или изменить
+            reply_markup=keyboard
+        )
+    except Exception as e:
+        logger.error(f"Error sending chat request button: {e}", exc_info=True)
+        # Сообщаем об ошибке пользователю (в новом сообщении, если query был)
+        error_text = get_text("error_occurred", context)
+        # Отправляем сообщение об ошибке
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_text)
+        # Очищаем user_data
+        context.user_data.pop(f'chat_request_{request_id}', None)
 
-    # Извлекаем данные из forward_origin.chat (это объект Chat)
-    # Для каналов используем chat.id и chat.title
-    # Для групп используем chat.id и chat.title
-    chat_id = str(forward_origin.chat.id)
-    chat_name = forward_origin.chat.title
+    # Эта функция больше не возвращает состояние для ConversationHandler, т.к.
+    # обработка ответа идет через MessageHandler(filters.StatusUpdate.CHAT_SHARED)
 
+async def handle_chat_shared(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обрабатывает ответ пользователя на запрос выбора чата."""
+    message = update.effective_message
+    chat_shared = message.chat_shared
     user_id = update.effective_user.id
 
+    if not chat_shared:
+        logger.warning("Received update without chat_shared in handle_chat_shared.")
+        return
+
+    request_id = chat_shared.request_id
+    shared_chat_id = chat_shared.chat_id
+    logger.info(f"Received shared chat ID {shared_chat_id} for request ID {request_id} from user {user_id}.")
+
+    # Проверяем request_id и цель в user_data
+    request_key = f'chat_request_{request_id}'
+    request_info = context.user_data.get(request_key)
+
+    if not request_info or request_info.get('purpose') != 'add_channel':
+        logger.warning(f"Received shared chat for unknown or mismatched request ID {request_id} / purpose.")
+        # Можно отправить сообщение пользователю, что запрос устарел или не найден
+        return
+
+    # Очищаем user_data сразу после проверки
+    context.user_data.pop(request_key, None)
+
+    # Проверяем, является ли бот участником и администратором в выбранном чате
+    chat_title = f"ID {shared_chat_id}" # Имя по умолчанию
+    try:
+        # Сначала пытаемся получить информацию о чате, чтобы узнать его название
+        try:
+            chat_info = await context.bot.get_chat(chat_id=shared_chat_id)
+            chat_title = chat_info.title
+        except telegram.error.BadRequest as e:
+            # Если чат не найден, бот не является его участником
+            if "chat not found" in str(e).lower():
+                logger.warning(f"Bot is not a member of the selected chat {shared_chat_id}.")
+                # Используем текст из локализации, если он есть, иначе - стандартный
+                error_text = get_text("add_channel_bot_not_member", context, chat_id=shared_chat_id)
+                await message.reply_text(error_text)
+                return
+            else:
+                # Другая ошибка BadRequest при получении информации о чате
+                raise e # Передаем ошибку дальше
+        except Exception as e:
+             logger.error(f"Unexpected error getting chat info for {shared_chat_id}: {e}", exc_info=True)
+             # Используем имя по умолчанию, но продолжаем проверку прав
+             pass # Продолжаем, используя chat_title по умолчанию
+
+        # Теперь проверяем права бота в чате
+        chat_member = await context.bot.get_chat_member(chat_id=shared_chat_id, user_id=context.bot.id)
+        if not chat_member.status == 'administrator' or not chat_member.can_post_messages:
+            # Используем текст из локализации, если он есть, иначе - стандартный
+            error_text = get_text("add_channel_bot_not_admin", context, chat_title=chat_title)
+            await message.reply_text(error_text)
+            return
+
+    except telegram.error.BadRequest as e:
+        # Повторно ловим Chat not found на случай, если get_chat прошел, а get_chat_member нет (маловероятно)
+        if "chat not found" in str(e).lower():
+             logger.warning(f"Bot is not a member of the selected chat {shared_chat_id} (checked via get_chat_member).")
+             # Используем текст из локализации, если он есть, иначе - стандартный
+             error_text = get_text("add_channel_bot_not_member", context, chat_id=shared_chat_id)
+             await message.reply_text(error_text)
+             return
+        else:
+             # Другая ошибка BadRequest при проверке прав
+             logger.error(f"BadRequest checking bot status in chat {shared_chat_id}: {e}", exc_info=True)
+             await message.reply_text(get_text("error_occurred", context))
+             return
+    except Exception as e:
+        # Любая другая неожиданная ошибка
+        logger.error(f"Unexpected error checking bot status in chat {shared_chat_id}: {e}", exc_info=True)
+        await message.reply_text(get_text("error_occurred", context))
+        return
+
+    # Если мы дошли сюда, бот является админом с правом постинга. Добавляем канал в БД.
     with next(get_db()) as db:
         owner_id = user_id if BOT_MODE == 'public' else None
         channel = None
         error_message = None
         try:
-            channel = add_channel(db, chat_id=chat_id, name=chat_name, user_id=owner_id)
+            channel = add_channel(db, chat_id=str(shared_chat_id), name=chat_title, user_id=owner_id)
             if channel:
-                success_text = get_text("add_channel_success", context, channel_name=(channel.name or channel.chat_id))
-                await update.message.reply_text(success_text)
+                success_text = get_text("add_channel_request_success", context, chat_title=chat_title, chat_id=shared_chat_id)
+                await message.reply_text(success_text)
             else:
-                existing_channel = get_channel(db, chat_id=chat_id, user_id=owner_id)
+                # Проверяем, существует ли уже
+                existing_channel = get_channel(db, chat_id=str(shared_chat_id), user_id=owner_id)
                 if existing_channel:
-                     error_message = get_text("add_channel_already_exists", context, chat_id=chat_id)
+                     error_message = get_text("add_channel_request_already_exists", context, chat_title=chat_title, chat_id=shared_chat_id)
                 else:
-                     error_message = get_text("add_channel_error", context, error="Unknown database issue")
-                await update.message.reply_text(error_message)
+                     error_message = get_text("add_channel_request_error", context, chat_title=chat_title, error="Database issue")
+                await message.reply_text(error_message)
         except Exception as e:
-            logger.error(f"Error adding channel {chat_id} by user {user_id} via forward: {e}", exc_info=True)
-            error_message = get_text("add_channel_error", context, error=str(e))
-            await update.message.reply_text(error_message)
+            logger.error(f"Error adding channel {shared_chat_id} by user {user_id} via chat_shared: {e}", exc_info=True)
+            error_message = get_text("add_channel_request_error", context, chat_title=chat_title, error=str(e))
+            await message.reply_text(error_message)
 
-    return await channels_menu_back(update, context)
+    # Возвращаться в меню не нужно, т.к. это обработчик отдельного update
+
+
+# --- Добавление канала по ссылке/юзернейму ---
+
+async def add_channel_link_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> object:
+    """Запрашивает у пользователя ссылку или username публичного канала/группы."""
+    query = update.callback_query
+    if not is_authorized(update):
+        if query: await query.answer(get_text("no_access_inline", context), show_alert=True)
+        # Возвращаемся в меню каналов, завершая диалог добавления по ссылке
+        await channels_menu_back(update, context)
+        return ConversationHandler.END
+
+    await query.answer()
+    prompt_text = get_text("add_channel_link_prompt", context)
+    # Редактируем сообщение, убирая кнопки меню каналов
+    try:
+        await query.edit_message_text(text=prompt_text)
+    except Exception as e:
+        logger.error(f"Error editing message in add_channel_link_start: {e}")
+        # Если редактирование не удалось, отправим новое сообщение
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=prompt_text)
+
+    return ADDING_CHANNEL_LINK # Переходим в состояние ожидания ссылки
+
+async def add_channel_link_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> object:
+    """Обрабатывает введенную ссылку или username канала/группы."""
+    message = update.effective_message
+    user_id = update.effective_user.id
+    identifier = message.text.strip()
+
+    if not identifier:
+        await message.reply_text(get_text("add_channel_link_empty", context))
+        return ADDING_CHANNEL_LINK # Остаемся в том же состоянии
+
+    # Проверяем, похоже ли это на username или ссылку
+    if not (identifier.startswith('@') or 't.me/' in identifier or identifier.startswith('-100')): # Добавим проверку на ID
+         await message.reply_text(get_text("add_channel_link_invalid_format", context))
+         return ADDING_CHANNEL_LINK
+
+    # Убираем префикс https://t.me/ если он есть, оставляем только @username или username
+    # Если это ID, оставляем как есть
+    if 't.me/' in identifier:
+        identifier = '@' + identifier.split('/')[-1].split('?')[0] # Убираем параметры из ссылки
+
+    logger.info(f"User {user_id} trying to add public channel/group: {identifier}")
+
+    chat_title = identifier # Имя по умолчанию
+    shared_chat_id = None
+
+    try:
+        # Пытаемся получить информацию о чате по идентификатору
+        chat_info = await context.bot.get_chat(chat_id=identifier)
+        chat_title = chat_info.title
+        shared_chat_id = chat_info.id
+        logger.info(f"Successfully got info for public chat {identifier}: ID {shared_chat_id}, Title: {chat_title}")
+
+        # Пытаемся добавить в БД (или обновить имя, если уже есть по ID)
+        with next(get_db()) as db:
+            owner_id = user_id if BOT_MODE == 'public' else None
+            channel = add_channel(db, chat_id=str(shared_chat_id), name=chat_title, user_id=owner_id)
+
+            if channel:
+                success_text = get_text("add_channel_link_success", context, chat_title=chat_title, chat_id=shared_chat_id)
+                await message.reply_text(success_text)
+            else:
+                # Возможно, канал уже существует (добавлен ранее или через выбор)
+                existing_channel = get_channel(db, chat_id=str(shared_chat_id), user_id=owner_id)
+                if existing_channel:
+                    # Обновляем имя на всякий случай
+                    if existing_channel.name != chat_title:
+                         existing_channel.name = chat_title
+                         db.commit()
+                         logger.info(f"Updated channel name for {shared_chat_id} to '{chat_title}'")
+                    info_text = get_text("add_channel_link_already_exists", context, chat_title=chat_title, chat_id=shared_chat_id)
+                    await message.reply_text(info_text)
+                else:
+                    # Не удалось добавить по другой причине
+                    error_text = get_text("add_channel_request_error", context, chat_title=chat_title, error="Database issue")
+                    await message.reply_text(error_text)
+
+    except telegram.error.BadRequest as e:
+        if "chat not found" in str(e).lower() or "chat id is empty" in str(e).lower():
+            logger.warning(f"Could not find public chat {identifier} provided by user {user_id}.")
+            error_text = get_text("add_channel_link_not_found", context, identifier=identifier)
+            await message.reply_text(error_text)
+            return ADDING_CHANNEL_LINK # Просим ввести снова
+        else:
+            logger.error(f"BadRequest getting info for public chat {identifier}: {e}", exc_info=True)
+            await message.reply_text(get_text("error_occurred", context))
+            # Выходим из диалога при непонятной ошибке
+            await channels_menu_back(update, context)
+            return ConversationHandler.END
+    except Exception as e:
+        logger.error(f"Unexpected error processing public chat {identifier}: {e}", exc_info=True)
+        await message.reply_text(get_text("error_occurred", context))
+        # Выходим из диалога при неожиданной ошибке
+        await channels_menu_back(update, context)
+        return ConversationHandler.END
+
+    # После успешного добавления или сообщения "уже существует" выходим из диалога
+    await channels_menu_back(update, context) # Используем существующую функцию для возврата в меню
+    return ConversationHandler.END
+
 
 # --- Управление существующими каналами (удаление) ---
 
@@ -220,7 +421,8 @@ async def delete_channel_confirm_prompt(update: Update, context: ContextTypes.DE
         if not channel:
             await query.edit_message_text(get_text("delete_channel_not_found", context),
                                           reply_markup=build_channels_menu_keyboard(
-                                              add_text=get_text("channels_menu_add", context),
+                                              add_select_text=get_text("channels_menu_add_select", context), # Обновляем тексты кнопок
+                                              add_link_text=get_text("channels_menu_add_link", context),
                                               list_text=get_text("channels_menu_list", context),
                                               back_text=get_text("channels_menu_back", context)
                                           ))

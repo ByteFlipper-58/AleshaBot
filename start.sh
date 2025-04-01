@@ -32,10 +32,10 @@ fi
 echo "Activating virtual environment..."
 source "$VENV_DIR/bin/activate"
 
-echo "Installing/Updating dependencies..."
-pip install -r requirements.txt
+echo "Installing/Updating dependencies (forcing python-telegram-bot update)..."
+pip install --upgrade --no-cache-dir "python-telegram-bot[ext]>=20.0" && pip install --upgrade --no-cache-dir -r requirements.txt
 if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to install dependencies."
+    echo "ERROR: Failed to install dependencies. Please check pip and network connection."
     exit 1
 fi
 

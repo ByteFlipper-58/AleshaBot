@@ -1,6 +1,7 @@
 # keyboards.py
+import uuid
 from typing import List, Any
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, KeyboardButtonRequestChat, ChatAdministratorRights
 
 # Импортируем модели для type hints
 # Подразумевается, что модели RSSFeed, Channel, ChannelFeedLink определены в database.py
@@ -53,10 +54,11 @@ def build_feeds_menu_keyboard(add_text: str, list_text: str, back_text: str) -> 
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def build_channels_menu_keyboard(add_text: str, list_text: str, back_text: str) -> InlineKeyboardMarkup:
+def build_channels_menu_keyboard(add_select_text: str, add_link_text: str, list_text: str, back_text: str) -> InlineKeyboardMarkup:
     """Строит меню управления каналами с переведенными кнопками."""
     keyboard = [
-        [InlineKeyboardButton(add_text, callback_data="add_channel_start")],
+        [InlineKeyboardButton(add_select_text, callback_data="add_channel_start")], # Добавить через выбор
+        [InlineKeyboardButton(add_link_text, callback_data="add_channel_link_start")], # Добавить по ссылке/username
         [InlineKeyboardButton(list_text, callback_data="list_channels")],
         [InlineKeyboardButton(back_text, callback_data="main_menu")]
     ]
@@ -214,3 +216,72 @@ def build_selection_keyboard(
 # def build_item_selection_keyboard(...) -> InlineKeyboardMarkup:
 #     """Строит клавиатуру для выбора элемента из списка с пагинацией (аналог build_selection_keyboard)."""
 #     return build_selection_keyboard(...)
+
+# Импортируем ReplyKeyboardMarkup для клавиатуры с кнопкой запроса чата
+from telegram import ReplyKeyboardMarkup
+
+def build_request_chat_keyboard(button_text: str, request_id: int | str) -> ReplyKeyboardMarkup: # Возвращаем ReplyKeyboardMarkup
+    """Строит клавиатуру с кнопкой для запроса выбора чата."""
+    # 1. Права, которые ПОЛЬЗОВАТЕЛЬ должен иметь в чате для выбора
+    user_rights_required = ChatAdministratorRights(
+        is_anonymous=None,
+        can_manage_chat=None,
+        can_delete_messages=None,
+        can_manage_video_chats=None,
+        can_restrict_members=None,
+        can_promote_members=None,
+        can_change_info=None,
+        can_invite_users=None,
+        can_post_messages=True, # Пользователь должен мочь постить
+        can_edit_messages=None,
+        can_pin_messages=None,
+        can_post_stories=None,
+        can_edit_stories=None,
+        can_delete_stories=None,
+        can_manage_topics=None
+    )
+    # 2. Права, которые бот должен ПОЛУЧИТЬ (или уже иметь) в выбранном чате
+    # Запрашиваем только необходимое - право постить сообщения.
+    bot_rights_required = ChatAdministratorRights(
+        is_anonymous=False,
+        can_manage_chat=False,
+        can_delete_messages=False,
+        can_manage_video_chats=False,
+        can_restrict_members=False,
+        can_promote_members=False,
+        can_change_info=False,
+        can_invite_users=False,
+        can_post_messages=True, # Бот должен мочь постить
+        can_edit_messages=False,
+        can_pin_messages=False,
+        can_post_stories=False,
+        can_edit_stories=False,
+        can_delete_stories=False,
+        can_manage_topics=False
+    )
+
+    # Кнопка запроса чата должна быть KeyboardButton, а не InlineKeyboardButton
+    # и она должна быть в ReplyKeyboardMarkup
+    keyboard = [
+        [
+            KeyboardButton(
+                text=button_text,
+                request_chat=KeyboardButtonRequestChat( # Используем KeyboardButtonRequestChat
+                    # request_id должен быть int.
+                    request_id=int(request_id) if isinstance(request_id, str) and request_id.isdigit() else (request_id if isinstance(request_id, int) else 1),
+                    chat_is_channel=True,    # Разрешаем выбирать каналы
+                    # chat_is_supergroup=True, # Убираем неподдерживаемый параметр
+                    chat_is_forum=False,     # Запрещаем форумы
+                    chat_has_username=False, # Не обязательно
+                    chat_is_created=False, # Не обязательно
+                    user_administrator_rights=user_rights_required, # Фильтр для пользователя
+                    bot_administrator_rights=bot_rights_required, # Запрашиваем права для бота
+                    bot_is_member=None # Не важно, участник ли бот уже
+                )
+            )
+        ]
+        # ReplyKeyboardMarkup не поддерживает callback_data, поэтому кнопку отмены здесь не добавить стандартно.
+        # Отмена обычно обрабатывается через команду /cancel.
+    ]
+    # resize_keyboard=True делает кнопки удобнее, one_time_keyboard=True скрывает после нажатия
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)

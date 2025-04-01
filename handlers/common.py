@@ -60,15 +60,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         db_user = get_or_create_user(db, user.id, user.username, user.first_name, user.last_name)
         context.user_data[USER_LANGUAGE] = getattr(db_user, 'language_code', DEFAULT_LANGUAGE) or DEFAULT_LANGUAGE
 
-    text = get_text("greeting", context, user_mention=user.mention_html()) \
-           + " " + get_text("choose_action", context)
+    # Используем единый ключ для стартового сообщения
+    text = get_text("start_message", context)
 
     keyboard = build_main_menu_keyboard(
-        feeds_text=get_text("main_menu_feeds", context),
-        channels_text=get_text("main_menu_channels", context),
-        subs_text=get_text("main_menu_subscriptions", context),
-        check_text=get_text("main_menu_force_check", context),
-        settings_text=get_text("main_menu_settings", context)
+        feeds_text=get_text("feeds_menu_button", context),
+        channels_text=get_text("channels_menu_button", context),
+        subs_text=get_text("subs_menu_button", context),
+        check_text=get_text("force_check_button", context),
+        settings_text=get_text("settings_menu_button", context)
     )
 
     if update.callback_query:
@@ -91,11 +91,11 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Отменяет текущий диалог и возвращает в главное меню."""
     text = get_text("action_cancelled", context)
     reply_markup = build_main_menu_keyboard(
-        feeds_text=get_text("main_menu_feeds", context),
-        channels_text=get_text("main_menu_channels", context),
-        subs_text=get_text("main_menu_subscriptions", context),
-        check_text=get_text("main_menu_force_check", context),
-        settings_text=get_text("main_menu_settings", context)
+        feeds_text=get_text("feeds_menu_button", context),
+        channels_text=get_text("channels_menu_button", context),
+        subs_text=get_text("subs_menu_button", context),
+        check_text=get_text("force_check_button", context),
+        settings_text=get_text("settings_menu_button", context)
     )
 
     if update.callback_query:
