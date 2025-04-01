@@ -5,7 +5,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 # Импортируем модели для type hints
 # Подразумевается, что модели RSSFeed, Channel, ChannelFeedLink определены в database.py
 try:
-    from .database import RSSFeed, Channel, ChannelFeedLink
+    from database import RSSFeed, Channel, ChannelFeedLink
 except ImportError:
     # Заглушки, если модели не найдены (для статической проверки)
     class RSSFeed: pass

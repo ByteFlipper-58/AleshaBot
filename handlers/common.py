@@ -8,16 +8,16 @@ from telegram.ext import ContextTypes, ConversationHandler
 from telegram.constants import ParseMode # Правильный импорт ParseMode
 
 # Локальные импорты
-from ..config import BOT_MODE, ADMIN_USER_IDS
-from ..database import get_db, get_or_create_user, update_user_language
-from ..constants import (
+from config import BOT_MODE, ADMIN_USER_IDS
+from database import get_db, get_or_create_user, update_user_language
+from constants import (
     MAIN_MENU, # Оставляем только MAIN_MENU для возврата из cancel
     USER_LANGUAGE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 )
-from ..keyboards import (
+from keyboards import (
     build_main_menu_keyboard # Оставляем только клавиатуру главного меню
 )
-from ..localization import get_text
+from localization import get_text
 
 logger = logging.getLogger(__name__)
 

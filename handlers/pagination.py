@@ -6,21 +6,21 @@ from telegram.ext import ContextTypes, ConversationHandler
 from telegram.constants import ParseMode # Импортируем ParseMode отсюда
 
 # Локальные импорты
-from ..config import BOT_MODE
-from ..database import get_db, get_all_feeds, get_all_channels, get_channel, get_subscriptions_for_channel
-from ..constants import (
+from config import BOT_MODE
+from database import get_db, get_all_feeds, get_all_channels, get_channel, get_subscriptions_for_channel
+from constants import (
     CURRENT_PAGE, PAGE_SIZE,
     SUBSCRIBE_SELECT_FEED, SUBSCRIBE_SELECT_CHANNEL,
     UNSUBSCRIBE_SELECT_CHANNEL, UNSUBSCRIBE_SELECT_FEED,
     LIST_SUBS_SELECT_CHANNEL,
     EDIT_HASHTAGS_SELECT_CHANNEL, EDIT_HASHTAGS_SELECT_FEED
 )
-from ..keyboards import build_selection_keyboard # build_item_selection_keyboard удален
-from .common import is_authorized
-from ..localization import get_text # Импортируем get_text
+from keyboards import build_selection_keyboard # build_item_selection_keyboard удален
+from handlers.common import is_authorized
+from localization import get_text # Импортируем get_text
 # Импортируем функции списков для возврата управления после пагинации
-from .feeds import list_feeds_button
-from .channels import list_channels_button
+from handlers.feeds import list_feeds_button
+from handlers.channels import list_channels_button
 
 logger = logging.getLogger(__name__)
 

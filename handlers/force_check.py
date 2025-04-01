@@ -13,10 +13,10 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 # Локальные импорты
-from ..database import get_db, RSSFeed
-from ..scheduler import process_single_feed # Импортируем функцию обработки одной ленты
-from .common import is_authorized
-from ..localization import get_text # Импортируем get_text
+from database import get_db, RSSFeed
+from scheduler import process_single_feed # Импортируем функцию обработки одной ленты
+from handlers.common import is_authorized
+from localization import get_text # Импортируем get_text
 
 logger = logging.getLogger(__name__)
 

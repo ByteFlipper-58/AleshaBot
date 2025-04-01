@@ -7,10 +7,10 @@ import os
 from datetime import datetime, timezone
 from typing import List, Optional
 
-# Импортируем настройки режима работы (относительный импорт)
-from .config import BOT_MODE
-# Импортируем константы для языка по умолчанию (относительный импорт)
-from .constants import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+# Импортируем настройки режима работы
+from config import BOT_MODE
+# Импортируем константы для языка по умолчанию
+from constants import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 
 logger = logging.getLogger(__name__)
 

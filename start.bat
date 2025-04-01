@@ -27,13 +27,9 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-echo Starting AleshaBot from parent directory...
-REM Change to the parent directory
-cd ..
-REM Run rss_telegram_bot.bot as a module
-python -m rss_telegram_bot.bot
-REM Change back to the original directory (optional, but good practice)
-cd rss_telegram_bot
+echo Starting AleshaBot...
+REM Run bot.py directly from the current directory
+python bot.py
 
 echo Bot stopped. Deactivating virtual environment...
 call "%VENV_DIR%\Scripts\deactivate.bat"

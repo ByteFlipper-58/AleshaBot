@@ -7,20 +7,20 @@ from telegram.ext import ContextTypes, ConversationHandler
 from telegram.constants import ParseMode # Импортируем ParseMode отсюда
 
 # Локальные импорты
-from ..config import BOT_MODE
-from ..database import (
+from config import BOT_MODE
+from database import (
     get_db, get_all_feeds, add_feed, get_feed, delete_feed, update_feed_delay
 )
-from ..constants import (
+from constants import (
     FEEDS_MENU, ADD_FEED_URL, ADD_FEED_DELAY, ADD_FEED_NAME,
     DELETE_FEED_CONFIRM, SET_DELAY_VALUE, FEED_URL, FEED_DELAY, FEED_ID, PAGE_SIZE
 )
-from ..keyboards import (
+from keyboards import (
     build_feeds_menu_keyboard, build_paginated_list_keyboard, build_back_button
 )
-from .common import is_authorized, is_valid_url # Убедимся, что feeds_menu_back здесь нет
-from .navigation import feeds_menu_back # Убедимся, что импорт отсюда
-from ..localization import get_text # Импортируем get_text
+from handlers.common import is_authorized, is_valid_url # Убедимся, что feeds_menu_back здесь нет
+from handlers.navigation import feeds_menu_back # Убедимся, что импорт отсюда
+from localization import get_text # Импортируем get_text
 
 logger = logging.getLogger(__name__)
 

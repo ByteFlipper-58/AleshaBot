@@ -7,27 +7,27 @@ from telegram.ext import ContextTypes, ConversationHandler
 from telegram.constants import ParseMode # Правильный импорт ParseMode
 
 # Локальные импорты
-from ..config import BOT_MODE
-from ..database import (
+from config import BOT_MODE
+from database import (
     get_db, get_all_feeds, get_all_channels, get_channel, get_feed,
     subscribe_channel_to_feed, unsubscribe_channel_from_feed,
     get_subscriptions_for_channel, get_subscription, update_subscription_hashtags,
     format_hashtags
 )
-from ..constants import (
+from constants import (
     SUBS_MENU, SUBSCRIBE_SELECT_FEED, SUBSCRIBE_SELECT_CHANNEL, SUBSCRIBE_GET_HASHTAGS,
     UNSUBSCRIBE_SELECT_CHANNEL, UNSUBSCRIBE_SELECT_FEED,
     LIST_SUBS_SELECT_CHANNEL,
     EDIT_HASHTAGS_SELECT_CHANNEL, EDIT_HASHTAGS_SELECT_FEED, EDIT_HASHTAGS_GET_VALUE,
     FEED_ID, CHANNEL_ID_DB, HASHTAGS, CURRENT_PAGE, PAGE_SIZE
 )
-from ..keyboards import (
+from keyboards import (
     build_subs_menu_keyboard, build_selection_keyboard,
     build_back_button
 )
-from .common import is_authorized # Убедимся, что subs_menu_back здесь нет
-from .navigation import subs_menu_back # Убедимся, что импорт отсюда
-from ..localization import get_text
+from handlers.common import is_authorized # Убедимся, что subs_menu_back здесь нет
+from handlers.navigation import subs_menu_back # Убедимся, что импорт отсюда
+from localization import get_text
 
 logger = logging.getLogger(__name__)
 

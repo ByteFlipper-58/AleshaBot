@@ -5,17 +5,17 @@ import asyncio
 from telegram import Update
 from telegram.ext import ContextTypes
 
-# Локальные импорты (относительные)
-from ..constants import (
+# Локальные импорты
+from constants import (
     MAIN_MENU, FEEDS_MENU, CHANNELS_MENU, SUBS_MENU, SETTINGS_MENU, SELECT_LANGUAGE
 )
-from ..keyboards import (
+from keyboards import (
     build_main_menu_keyboard, build_feeds_menu_keyboard,
     build_channels_menu_keyboard, build_subs_menu_keyboard,
     build_settings_menu_keyboard, build_language_selection_keyboard
 )
-from ..localization import get_text
-from .common import is_authorized, start # Импортируем start для возврата в главное меню
+from localization import get_text
+from handlers.common import is_authorized, start # Импортируем start для возврата в главное меню
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await query.edit_message_text(text=text, reply_markup=keyboard)
         return SUBS_MENU
     elif data == "force_check_all":
-        from .force_check import force_check_feeds # Оставляем импорт здесь
+        from handlers.force_check import force_check_feeds # Импорт из пакета handlers
         await query.message.reply_text(get_text("force_check_starting", context))
         asyncio.create_task(force_check_feeds(update, context, feed_id=None))
         return MAIN_MENU
@@ -216,7 +216,7 @@ async def select_language_handler(update: Update, context: ContextTypes.DEFAULT_
     if new_lang and new_lang in context.application.bot_data.get("supported_languages", ["en", "ru"]): # Получаем из bot_data
         context.user_data[context.application.bot_data.get("user_language_key", "user_language")] = new_lang
         try:
-            from ..database import update_user_language, get_db # Импорт внутри, т.к. файл может быть импортирован раньше database
+            from database import update_user_language, get_db # Прямой импорт из корня
             with next(get_db()) as db:
                 update_user_language(db, user_id, new_lang)
             logger.info(f"User {user_id} set language to {new_lang}")

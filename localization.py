@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 from telegram.ext import ContextTypes
 
-from .constants import USER_LANGUAGE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from constants import USER_LANGUAGE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 
 logger = logging.getLogger(__name__)
 

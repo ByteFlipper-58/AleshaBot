@@ -7,20 +7,20 @@ from telegram.ext import ContextTypes, ConversationHandler
 from telegram.constants import ParseMode # Правильный импорт ParseMode
 
 # Локальные импорты
-from ..config import BOT_MODE
-from ..database import (
+from config import BOT_MODE
+from database import (
     get_db, get_all_channels, add_channel, get_channel, delete_channel
 )
-from ..constants import (
+from constants import (
     CHANNELS_MENU, ADD_CHANNEL_FORWARD, DELETE_CHANNEL_CONFIRM, # Обновленные состояния
     CHANNEL_ID_DB, PAGE_SIZE
 )
-from ..keyboards import (
+from keyboards import (
     build_channels_menu_keyboard, build_paginated_list_keyboard, build_back_button
 )
-from .common import is_authorized
-from .navigation import channels_menu_back # Импортируем channels_menu_back из navigation
-from ..localization import get_text
+from handlers.common import is_authorized
+from handlers.navigation import channels_menu_back # Импортируем channels_menu_back из navigation
+from localization import get_text
 
 logger = logging.getLogger(__name__)
 

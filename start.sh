@@ -39,15 +39,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "Starting AleshaBot from parent directory..."
-# Get the directory where the script is located
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-# Change to the parent directory
-cd "$SCRIPT_DIR/.."
-# Run rss_telegram_bot.bot as a module
-$PYTHON_CMD -m rss_telegram_bot.bot
-# Change back to the original directory (optional)
-cd "$SCRIPT_DIR"
+echo "Starting AleshaBot..."
+# Run bot.py directly from the current directory
+$PYTHON_CMD bot.py
 
 echo "Bot stopped. Deactivating virtual environment..."
 deactivate

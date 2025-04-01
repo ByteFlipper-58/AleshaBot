@@ -11,16 +11,16 @@ from telegram import Bot
 from telegram.error import TelegramError, BadRequest
 from telegram.constants import ParseMode # Правильный импорт ParseMode
 
-# Локальные импорты (полный путь от корня пакета)
-from rss_telegram_bot.database import (
+# Локальные импорты
+from database import (
     get_db, RSSFeed, Channel, ChannelFeedLink, ScheduledPost, # Модели
     get_subscriptions_for_feed,
     add_published_post, is_post_published,
     add_scheduled_post, get_pending_scheduled_posts, update_scheduled_post_status,
     update_feed_last_checked
 )
-from rss_telegram_bot.rss_parser import parse_feed # Убрали FeedEntry
-# from rss_telegram_bot.config import BOT_MODE # BOT_MODE здесь не используется
+from rss_parser import parse_feed # Убрали FeedEntry
+# from config import BOT_MODE # BOT_MODE здесь не используется
 
 logger = logging.getLogger(__name__)
 

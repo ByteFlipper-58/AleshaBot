@@ -6,11 +6,11 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-# Импортируем функцию настройки приложения из нового модуля (относительный импорт)
-from .bot_setup import setup_application
-# Импортируем настройки логирования и функцию инициализации БД (относительные импорты)
-from .config import LOG_LEVEL
-from .database import init_db
+# Импортируем функцию настройки приложения из нового модуля
+from bot_setup import setup_application
+# Импортируем настройки логирования и функцию инициализации БД
+from config import LOG_LEVEL
+from database import init_db
 
 logger = logging.getLogger(__name__)
 

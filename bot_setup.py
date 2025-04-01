@@ -9,11 +9,11 @@ from telegram.ext import (
 )
 
 # Локальные импорты
-from .constants import * # Импортируем все константы
+from constants import * # Импортируем все константы
 # Импортируем обработчики по категориям
-from .handlers import common # Общие команды (start, cancel)
-from .handlers import navigation # Обработчики навигации по меню
-from .handlers import feeds, channels, subscriptions, force_check, pagination # Обработчики конкретных действий
+from handlers import common # Общие команды (start, cancel)
+from handlers import navigation # Обработчики навигации по меню
+from handlers import feeds, channels, subscriptions, force_check, pagination # Обработчики конкретных действий
 
 logger = logging.getLogger(__name__)
 
